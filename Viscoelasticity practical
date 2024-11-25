@@ -1,0 +1,104 @@
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.stats import linregress
+
+# Constants
+CROSS_SECTIONAL_AREA = 12.5 * 3.3  # mm^2, replace with actual value
+INITIAL_LENGTH = 100.0  # mm, replace with actual value
+
+
+def process_data(file_path):
+    try:
+        # Read the CSV file with custom delimiter and decimal settings
+        data = pd.read_csv(file_path, delimiter=";", decimal=",")
+    except pd.errors.ParserError as e:
+        print(f"Error parsing the file: {file_path}. Details: {e}")
+        return None, None
+
+    # Extract elongation and force columns
+    if "elongation" not in data.columns or "Force" not in data.columns:
+        print("Required columns 'elongation' or 'Force' are missing.")
+        return None, None
+
+    elongation = data["elongation"]  # mm
+    force = data["Force"]  # N
+
+    # Calculate stress and strain
+    stress = force / CROSS_SECTIONAL_AREA  # MPa
+    strain = elongation / INITIAL_LENGTH  # unitless
+
+    return strain, stress
+
+
+def calculate_youngs_modulus(strain, stress, elastic_limit=0.002):
+    # Identify the elastic region (strain <= elastic_limit)
+    elastic_region = strain <= elastic_limit
+    slope, intercept, _, _, _ = linregress(
+        strain[elastic_region], stress[elastic_region]
+    )
+
+    return slope  # Young's modulus (slope of the elastic region)
+
+
+def calculate_ductility(strain):
+    # Maximum strain before failure
+    return strain.max() * 100  # Convert to percentage
+
+
+def plot_results(
+    strain,
+    stress,
+    youngs_modulus,
+    ductility,
+    max_stress=50,
+):
+    # Convert strain to percent for plotting
+    strain_percent = strain * 100
+
+    plt.figure(figsize=(10, 6))
+    plt.plot(strain_percent, stress, label="Stress-Strain Curve")
+    plt.xlabel("Strain (%)")
+    plt.ylabel("Stress (MPa)")
+    plt.title(f"Stress-Strain Curve (Limited to {max_stress} MPa)")
+    plt.ylim(0, max_stress)
+    plt.legend()
+    plt.grid(True)
+    plt.show()
+
+    print(f"\nResults:")
+    print(f"  Young's Modulus: {youngs_modulus:.2f} MPa")
+    print(f"  Ductility: {ductility:.2f}% elongation")
+
+
+# Paths to your CSV files
+file_10mm = "C:/Users/anast/Documents/Arcada/Viscoelastisity/Practical/10mmpermin.csv"
+file_200mm = "C:/Users/anast/Documents/Arcada/Viscoelastisity/Practical/200mmpermin.csv"
+
+# Process the data for both test speeds
+strain_10, stress_10 = process_data(file_10mm)
+strain_200, stress_200 = process_data(file_200mm)
+
+# Calculate and plot results for 10 mm/min test
+if strain_10 is not None and stress_10 is not None:
+    youngs_modulus_10 = calculate_youngs_modulus(strain_10, stress_10)
+    ductility_10 = calculate_ductility(strain_10)
+    plot_results(
+        strain_10,
+        stress_10,
+        youngs_modulus_10,
+        ductility_10,
+        max_stress=50,
+    )
+
+# Calculate and plot results for 200 mm/min test
+if strain_200 is not None and stress_200 is not None:
+    youngs_modulus_200 = calculate_youngs_modulus(strain_200, stress_200)
+    ductility_200 = calculate_ductility(strain_200)
+    plot_results(
+        strain_200,
+        stress_200,
+        youngs_modulus_200,
+        ductility_200,
+        max_stress=50,
+    )
